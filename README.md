@@ -1,2 +1,0 @@
-# Hyperbola
-# ikram anjing

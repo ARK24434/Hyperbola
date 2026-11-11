@@ -1,0 +1,916 @@
+<!DOCTYPE html>
+<html lang="id" class="h-full">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Visualisasi 3D & 2D Geometri Analitik Hiperbola</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts Inter -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Three.js & OrbitControls -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <!-- MathJax for KaTeX math formatting -->
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        canvas { outline: none; }
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: #f1f5f9; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+        .tab-btn.active { background-color: #4f46e5; color: white; font-weight: 600; }
+    </style>
+</head>
+<body class="flex flex-col md:flex-row h-screen w-screen text-slate-800 bg-slate-50 antialiased overflow-hidden select-none">
+
+    <!-- 3D / 2D Canvas Container -->
+    <div class="relative flex-1 h-3/5 md:h-full bg-slate-900 order-2 md:order-1 overflow-hidden" id="canvas-container">
+        
+        <!-- Top Overlay Header -->
+        <div class="absolute top-4 left-4 z-10 bg-slate-900/85 backdrop-blur-md p-3 px-4 rounded-xl shadow-lg border border-slate-700/60 max-w-md pointer-events-auto text-white">
+            <div class="flex items-center justify-between gap-3">
+                <h1 class="font-bold text-sm sm:text-base flex items-center gap-2">
+                    <i class="fa-solid fa-shapes text-indigo-400"></i> Eksplorasi Irisan Kerucut & Hiperbola
+                </h1>
+                <button onclick="toggleModal('modal-hosting')" class="text-xs bg-indigo-600 hover:bg-indigo-500 text-white px-2.5 py-1 rounded-lg transition-all flex items-center gap-1.5 shadow">
+                    <i class="fa-solid fa-cloud-arrow-up"></i> Host / Share
+                </button>
+            </div>
+            <p id="mode-description" class="text-xs text-slate-300 mt-1 leading-relaxed">
+                Mode 1: Irisan Kerucut 3D - Potongan bidang datar tegak lurus pada kerucut ganda membentuk kurva hiperbola.
+            </p>
+        </div>
+
+        <!-- Canvas 3D (Three.js) & Canvas 2D (Overlay/Pure Plot) -->
+        <canvas id="three-canvas" class="w-full h-full block"></canvas>
+        <canvas id="two-canvas" class="w-full h-full absolute top-0 left-0 hidden bg-slate-950 pointer-events-auto"></canvas>
+
+        <!-- View Controls Hint / Legend -->
+        <div class="absolute bottom-4 left-4 z-10 flex flex-wrap gap-2 pointer-events-none text-xs">
+            <div class="bg-slate-900/80 backdrop-blur-md px-3 py-1.5 rounded-lg border border-slate-700 text-slate-200 shadow-sm flex items-center gap-2">
+                <span class="w-3 h-3 rounded-full bg-red-500 inline-block"></span> Hiperbola
+            </div>
+            <div id="legend-pgs" class="bg-slate-900/80 backdrop-blur-md px-3 py-1.5 rounded-lg border border-slate-700 text-slate-200 shadow-sm flex items-center gap-2">
+                <span class="w-3 h-3 rounded-full bg-amber-400 inline-block"></span> PGS (Garis Singgung)
+            </div>
+            <div class="bg-slate-900/80 backdrop-blur-md px-3 py-1.5 rounded-lg border border-slate-700 text-slate-200 shadow-sm flex items-center gap-2">
+                <span class="w-3 h-3 rounded-full bg-emerald-400 inline-block"></span> Fokus & Puncak
+            </div>
+        </div>
+
+        <!-- Camera Control Guide -->
+        <div class="absolute bottom-4 right-4 z-10 bg-slate-900/80 backdrop-blur-md px-3 py-2 rounded-xl border border-slate-700 text-[11px] text-slate-400 shadow-sm hidden sm:block">
+            <div class="flex items-center gap-2 mb-0.5"><i class="fa-solid fa-mouse text-indigo-400"></i> <b>Rotasi:</b> Klik Kiri + Drag</div>
+            <div class="flex items-center gap-2 mb-0.5"><i class="fa-solid fa-arrows-up-down-left-right text-indigo-400"></i> <b>Geser:</b> Klik Kanan + Drag</div>
+            <div class="flex items-center gap-2"><i class="fa-solid fa-magnifying-glass-plus text-indigo-400"></i> <b>Zoom:</b> Scroll Mouse</div>
+        </div>
+    </div>
+
+    <!-- Side Control Panel -->
+    <div class="w-full md:w-[420px] h-2/5 md:h-full bg-white border-t md:border-t-0 md:border-l border-slate-200 overflow-y-auto p-4 sm:p-5 z-20 flex flex-col justify-between shadow-xl order-1 md:order-2">
+        <div class="space-y-5">
+            
+            <!-- Mode Switcher Tabs -->
+            <div>
+                <label class="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">Mode Visualisasi</label>
+                <div class="grid grid-cols-2 gap-1.5 p-1 bg-slate-100 rounded-xl text-xs">
+                    <button onclick="setMode(1)" id="mode-btn-1" class="tab-btn active py-2 px-2 rounded-lg transition-all text-center">
+                        <i class="fa-solid fa-cube mr-1"></i> 1. Kerucut 3D
+                    </button>
+                    <button onclick="setMode(2)" id="mode-btn-2" class="tab-btn py-2 px-2 rounded-lg text-slate-600 hover:text-slate-900 transition-all text-center">
+                        <i class="fa-solid fa-chart-line mr-1"></i> 2. Grafik 2D
+                    </button>
+                    <button onclick="setMode(3)" id="mode-btn-3" class="tab-btn py-2 px-2 rounded-lg text-slate-600 hover:text-slate-900 transition-all text-center">
+                        <i class="fa-solid fa-globe mr-1"></i> 3. Hyperboloid
+                    </button>
+                    <button onclick="setMode(4)" id="mode-btn-4" class="tab-btn py-2 px-2 rounded-lg text-slate-600 hover:text-slate-900 transition-all text-center">
+                        <i class="fa-solid fa-building-user mr-1"></i> 4. Aplikasi Nyata
+                    </button>
+                </div>
+            </div>
+
+            <!-- Real-World Submodes (Only visible in Mode 4) -->
+            <div id="section-app-submode" class="hidden bg-indigo-50 border border-indigo-100 rounded-xl p-3">
+                <label class="block text-xs font-bold text-indigo-900 mb-1">Pilih Aplikasi Dunia Nyata:</label>
+                <select id="select-app-model" onchange="updateAll()" class="w-full bg-white border border-indigo-200 text-xs rounded-lg p-2 font-medium text-slate-700 outline-none focus:ring-2 focus:ring-indigo-500">
+                    <option value="tower">Menara Pendingin Hiperbolik (Cooling Tower)</option>
+                    <option value="telescope">Teleskop Cassegrain (Reflektor Hiperbolik)</option>
+                    <option value="loran">Navigasi LORAN / GPS (Irisan Hiperbola)</option>
+                </select>
+            </div>
+
+            <!-- Orientation Switcher -->
+            <div>
+                <div class="flex justify-between items-center mb-1.5">
+                    <label class="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Orientasi Sumbu Utama</label>
+                </div>
+                <div class="grid grid-cols-2 gap-2 p-1 bg-slate-100 rounded-xl text-xs">
+                    <button id="btn-orient-h" onclick="setOrientation('horizontal')" class="py-1.5 px-3 rounded-lg font-medium transition-all shadow-sm bg-white text-indigo-600 font-semibold">
+                        <i class="fa-solid fa-arrows-left-right mr-1"></i> Horizontal
+                    </button>
+                    <button id="btn-orient-v" onclick="setOrientation('vertical')" class="py-1.5 px-3 rounded-lg font-medium text-slate-600 hover:text-slate-900 transition-all">
+                        <i class="fa-solid fa-arrows-up-down mr-1"></i> Vertikal
+                    </button>
+                </div>
+            </div>
+
+            <!-- Parameters Sliders -->
+            <div class="space-y-3 bg-slate-50 border border-slate-200/80 p-3.5 rounded-xl">
+                <div class="flex justify-between items-center">
+                    <span class="text-xs font-bold text-slate-700">Parameter Geometri</span>
+                    <span class="text-[10px] text-indigo-600 font-semibold cursor-pointer hover:underline" onclick="resetParams()">Reset Standard</span>
+                </div>
+
+                <!-- Center Point P(h, k) -->
+                <div class="grid grid-cols-2 gap-2 pt-1">
+                    <div>
+                        <div class="flex justify-between text-xs mb-1">
+                            <span class="text-slate-600 font-medium">Pusat $h$:</span>
+                            <span id="val-h" class="font-bold text-indigo-600">0.0</span>
+                        </div>
+                        <input type="range" id="slider-h" min="-4.0" max="4.0" step="0.5" value="0.0" class="w-full accent-indigo-600 h-1.5 bg-slate-200 rounded-lg">
+                    </div>
+                    <div>
+                        <div class="flex justify-between text-xs mb-1">
+                            <span class="text-slate-600 font-medium">Pusat $k$:</span>
+                            <span id="val-k" class="font-bold text-indigo-600">0.0</span>
+                        </div>
+                        <input type="range" id="slider-k" min="-4.0" max="4.0" step="0.5" value="0.0" class="w-full accent-indigo-600 h-1.5 bg-slate-200 rounded-lg">
+                    </div>
+                </div>
+
+                <!-- Semi-axes a and b -->
+                <div>
+                    <div class="flex justify-between text-xs mb-1">
+                        <span class="text-slate-600 font-medium">Sumbu Semi-Utama ($a$):</span>
+                        <span id="val-a" class="font-bold text-indigo-600">2.0</span>
+                    </div>
+                    <input type="range" id="slider-a" min="0.8" max="4.0" step="0.1" value="2.0" class="w-full accent-indigo-600 h-1.5 bg-slate-200 rounded-lg">
+                </div>
+
+                <div>
+                    <div class="flex justify-between text-xs mb-1">
+                        <span class="text-slate-600 font-medium">Sumbu Semi-Konjugat ($b$):</span>
+                        <span id="val-b" class="font-bold text-indigo-600">1.5</span>
+                    </div>
+                    <input type="range" id="slider-b" min="0.8" max="4.0" step="0.1" value="1.5" class="w-full accent-indigo-600 h-1.5 bg-slate-200 rounded-lg">
+                </div>
+            </div>
+
+            <!-- PGS (Persamaan Garis Singgung) Simulator Panel -->
+            <div class="bg-amber-50/60 border border-amber-200/80 p-3.5 rounded-xl space-y-2">
+                <div class="flex items-center justify-between">
+                    <span class="text-xs font-bold text-amber-900 flex items-center gap-1">
+                        <i class="fa-solid fa-ruler-combined text-amber-600"></i> Garis Singgung (PGS)
+                    </span>
+                    <label class="flex items-center gap-1.5 text-xs text-amber-900 font-medium cursor-pointer">
+                        <input type="checkbox" id="chk-pgs" checked class="accent-amber-600 rounded">
+                        <span>Aktifkan</span>
+                    </label>
+                </div>
+
+                <div class="grid grid-cols-2 gap-2 text-xs">
+                    <label class="flex items-center gap-1 text-amber-900 cursor-pointer">
+                        <input type="radio" name="pgs-type" value="point" checked onchange="updateAll()" class="accent-amber-600">
+                        <span>Melalui $T(x_1, y_1)$</span>
+                    </label>
+                    <label class="flex items-center gap-1 text-amber-900 cursor-pointer">
+                        <input type="radio" name="pgs-type" value="grad" onchange="updateAll()" class="accent-amber-600">
+                        <span>Gradien $m$</span>
+                    </label>
+                </div>
+
+                <!-- Controls for PGS Point / Grad -->
+                <div id="pgs-ctrl-point" class="space-y-2 pt-1">
+                    <div class="flex justify-between text-xs">
+                        <span class="text-amber-800">Sudut Titik $T(\theta)$:</span>
+                        <span id="val-theta" class="font-bold text-amber-900">30°</span>
+                    </div>
+                    <input type="range" id="slider-theta" min="-70" max="70" step="2" value="30" class="w-full accent-amber-600 h-1.5 bg-amber-200 rounded-lg">
+                </div>
+                <div id="pgs-ctrl-grad" class="space-y-2 pt-1 hidden">
+                    <div class="flex justify-between text-xs">
+                        <span class="text-amber-800">Gradien ($m$):</span>
+                        <span id="val-grad" class="font-bold text-amber-900">1.20</span>
+                    </div>
+                    <input type="range" id="slider-grad" min="-3.0" max="3.0" step="0.1" value="1.2" class="w-full accent-amber-600 h-1.5 bg-amber-200 rounded-lg">
+                </div>
+            </div>
+
+            <!-- Toggles Visibility -->
+            <div>
+                <label class="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-2">Visibilitas Elemen</label>
+                <div class="grid grid-cols-2 gap-2 text-xs">
+                    <label class="flex items-center gap-2 text-slate-700 cursor-pointer">
+                        <input type="checkbox" id="chk-cones" checked class="accent-indigo-600 rounded">
+                        <span>Kerucut / Surface</span>
+                    </label>
+                    <label class="flex items-center gap-2 text-slate-700 cursor-pointer">
+                        <input type="checkbox" id="chk-plane" checked class="accent-indigo-600 rounded">
+                        <span>Bidang Potong</span>
+                    </label>
+                    <label class="flex items-center gap-2 text-slate-700 cursor-pointer">
+                        <input type="checkbox" id="chk-foci" checked class="accent-indigo-600 rounded">
+                        <span>Fokus & Puncak</span>
+                    </label>
+                    <label class="flex items-center gap-2 text-slate-700 cursor-pointer">
+                        <input type="checkbox" id="chk-asymptotes" checked class="accent-indigo-600 rounded">
+                        <span>Garis Asimtot</span>
+                    </label>
+                </div>
+            </div>
+
+            <!-- Mathematical Computations Card -->
+            <div class="bg-indigo-950 text-white rounded-xl p-4 space-y-2.5 shadow-md">
+                <div class="flex items-center justify-between border-b border-indigo-800/80 pb-2">
+                    <span class="text-xs font-bold text-indigo-300 uppercase tracking-wider">Hasil Perhitungan Unsur</span>
+                    <i class="fa-solid fa-calculator text-indigo-400"></i>
+                </div>
+                
+                <div class="text-xs space-y-2 text-slate-200">
+                    <div class="flex justify-between border-b border-indigo-900 pb-1">
+                        <span class="text-slate-400">Persamaan:</span>
+                        <span id="math-eq" class="font-bold text-amber-300">$\frac{x^2}{4} - \frac{y^2}{2.25} = 1$</span>
+                    </div>
+                    <div class="flex justify-between border-b border-indigo-900 pb-1">
+                        <span class="text-slate-400">Fokus ($c = \sqrt{a^2+b^2}$):</span>
+                        <span id="math-c" class="font-semibold">c = 2.50</span>
+                    </div>
+                    <div class="flex justify-between border-b border-indigo-900 pb-1">
+                        <span class="text-slate-400">Eksentrisitas ($e = c/a$):</span>
+                        <span id="math-e" class="font-semibold">e = 1.25</span>
+                    </div>
+                    <div class="flex justify-between border-b border-indigo-900 pb-1">
+                        <span class="text-slate-400">Latus Rectum ($2b^2/a$):</span>
+                        <span id="math-lr" class="font-semibold">2.25</span>
+                    </div>
+                    <div class="flex justify-between border-b border-indigo-900 pb-1">
+                        <span class="text-slate-400">Persamaan PGS:</span>
+                        <span id="math-pgs" class="font-semibold text-amber-300">$y = 1.20x \pm 1.85$</span>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- Footer / Reset Camera -->
+        <div class="border-t border-slate-100 pt-3 mt-4 flex items-center justify-between text-xs text-slate-500">
+            <button onclick="resetCamera()" class="hover:text-indigo-600 font-semibold transition-colors flex items-center gap-1.5">
+                <i class="fa-solid fa-rotate-left"></i> Reset Kamera
+            </button>
+            <span class="text-[10px] text-slate-400">Pusat $P(h, k)$</span>
+        </div>
+    </div>
+
+    <!-- MODAL: HOSTING & SHARE GUIDE -->
+    <div id="modal-hosting" class="fixed inset-0 z-50 bg-slate-900/70 backdrop-blur-sm hidden flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl max-w-xl w-full p-6 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
+            <div class="flex justify-between items-center border-b pb-3">
+                <h3 class="text-lg font-bold text-slate-800 flex items-center gap-2">
+                    <i class="fa-solid fa-cloud-arrow-up text-indigo-600"></i> Cara Hosting & Bagikan Web Ini Gratis
+                </h3>
+                <button onclick="toggleModal('modal-hosting')" class="text-slate-400 hover:text-slate-600">
+                    <i class="fa-solid fa-xmark text-xl"></i>
+                </button>
+            </div>
+
+            <p class="text-xs text-slate-600 leading-relaxed">
+                Aplikasi ini dikembangkan dalam <b>satu file HTML mandiri (Self-Contained)</b>. Anda dapat membagikan file ini langsung atau memasangnya di server internet secara <b>100% Gratis</b> melalui beberapa pilihan berikut:
+            </p>
+
+            <div class="space-y-3 text-xs">
+                <!-- Option 1: File Sharing Direct -->
+                <div class="p-3 bg-slate-50 rounded-xl border border-slate-200">
+                    <h4 class="font-bold text-indigo-600 flex items-center gap-1.5 mb-1">
+                        <i class="fa-solid fa-file-code"></i> 1. Kirim File Langsung (Tanpa Server)
+                    </h4>
+                    <p class="text-slate-600">
+                        Simpan kode ini dengan nama <code>index.html</code>. Siapapun dapat membuka file ini di laptop/smartphone langsung melalui browser (Chrome, Edge, Safari) tanpa perlu install server.
+                    </p>
+                </div>
+
+                <!-- Option 2: GitHub Pages -->
+                <div class="p-3 bg-slate-50 rounded-xl border border-slate-200">
+                    <h4 class="font-bold text-indigo-600 flex items-center gap-1.5 mb-1">
+                        <i class="fa-brands fa-github"></i> 2. GitHub Pages (Domain Permanen Gratis)
+                    </h4>
+                    <ol class="list-decimal list-inside text-slate-600 space-y-1">
+                        <li>Buat repositori publik baru di <a href="https://github.com" target="_blank" class="text-indigo-600 underline">GitHub.com</a>.</li>
+                        <li>Upload file <code>index.html</code> ini ke dalam repositori tersebut.</li>
+                        <li>Buka <b>Settings &gt; Pages</b>, ubah Branch ke <b>main</b> lalu simpan.</li>
+                        <li>Dapatkan Link URL Publik (contoh: <code>username.github.io/hiperbola-3d</code>).</li>
+                    </ol>
+                </div>
+
+                <!-- Option 3: Netlify / Vercel Drop -->
+                <div class="p-3 bg-slate-50 rounded-xl border border-slate-200">
+                    <h4 class="font-bold text-indigo-600 flex items-center gap-1.5 mb-1">
+                        <i class="fa-solid fa-bolt"></i> 3. Netlify Drop (Hosting Paling Cepat 10 Detik)
+                    </h4>
+                    <ol class="list-decimal list-inside text-slate-600 space-y-1">
+                        <li>Buka <a href="https://app.netlify.com/drop" target="_blank" class="text-indigo-600 underline">app.netlify.com/drop</a>.</li>
+                        <li>Drag & Drop folder berisi file <code>index.html</code> ke halaman browser tersebut.</li>
+                        <li>Web langsung aktif dan Anda mendapatkan link publik seketika!</li>
+                    </ol>
+                </div>
+            </div>
+
+            <div class="pt-2 flex justify-end">
+                <button onclick="toggleModal('modal-hosting')" class="bg-indigo-600 hover:bg-indigo-700 text-white text-xs px-4 py-2 rounded-lg font-medium transition-all">
+                    Tutup Panduan
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- APP JAVASCRIPT LOGIC -->
+    <script>
+        // State variables
+        let currentMode = 1; // 1: Cone 3D, 2: 2D Analytic, 3: Hyperboloid, 4: Real World
+        let orientation = 'horizontal';
+        
+        let paramA = 2.0;
+        let paramB = 1.5;
+        let paramH = 0.0;
+        let paramK = 0.0;
+        let pgsTheta = 30; // degrees
+        let pgsGrad = 1.2;
+
+        let showCones = true;
+        let showPlane = true;
+        let showFoci = true;
+        let showAsymptotes = true;
+        let showPGS = true;
+
+        // Three.js elements
+        let scene, camera, renderer, controls;
+        let mainGroup;
+
+        // 2D Canvas elements
+        let canvas2D, ctx2D;
+
+        const CONE_HEIGHT = 10;
+        const CONE_RADIUS = 5;
+
+        // Init function
+        function init() {
+            const container = document.getElementById('canvas-container');
+
+            // 1. Scene Setup
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x0f172a); // Slate-900 dark bg for vivid 3D
+
+            // 2. Camera Setup
+            camera = new THREE.PerspectiveCamera(45, container.clientWidth / container.clientHeight, 0.1, 1000);
+            camera.position.set(12, 10, 16);
+
+            // 3. Renderer Setup
+            renderer = new THREE.WebGLRenderer({ canvas: document.getElementById('three-canvas'), antialias: true });
+            renderer.setSize(container.clientWidth, container.clientHeight);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+
+            // 4. Orbit Controls
+            controls = new THREE.OrbitControls(camera, renderer.domElement);
+            controls.enableDamping = true;
+            controls.dampingFactor = 0.05;
+
+            // 5. Lights
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.8);
+            scene.add(ambientLight);
+
+            const dirLight1 = new THREE.DirectionalLight(0xffffff, 0.8);
+            dirLight1.position.set(10, 20, 15);
+            scene.add(dirLight1);
+
+            const dirLight2 = new THREE.DirectionalLight(0x818cf8, 0.4);
+            dirLight2.position.set(-10, -10, -10);
+            scene.add(dirLight2);
+
+            // 6. Main Group for 3D objects
+            mainGroup = new THREE.Group();
+            scene.add(mainGroup);
+
+            // 7. 2D Canvas Setup
+            canvas2D = document.getElementById('two-canvas');
+            ctx2D = canvas2D.getContext('2d');
+            resize2DCanvas();
+
+            // Event Listeners
+            window.addEventListener('resize', onWindowResize);
+            attachInputEvents();
+
+            // Initial render
+            updateAll();
+            animate();
+        }
+
+        // Switch Main Visualization Modes
+        function setMode(modeNum) {
+            currentMode = modeNum;
+            for (let i = 1; i <= 4; i++) {
+                const btn = document.getElementById(`mode-btn-${i}`);
+                if (i === modeNum) {
+                    btn.className = "tab-btn active py-2 px-2 rounded-lg transition-all text-center font-semibold shadow-sm";
+                } else {
+                    btn.className = "tab-btn py-2 px-2 rounded-lg text-slate-600 hover:text-slate-900 transition-all text-center";
+                }
+            }
+
+            const canvas3D = document.getElementById('three-canvas');
+            const appSubSection = document.getElementById('section-app-submode');
+            const descEl = document.getElementById('mode-description');
+
+            if (modeNum === 2) {
+                // Pure 2D Plot Mode
+                canvas3D.classList.add('hidden');
+                canvas2D.classList.remove('hidden');
+                appSubSection.classList.add('hidden');
+                descEl.innerText = "Mode 2: Geometri Analitik 2D - Grafik presisi koordinat Kartesius, garis singgung (PGS), fokus, dan asimtot.";
+            } else {
+                canvas3D.classList.remove('hidden');
+                canvas2D.classList.add('hidden');
+
+                if (modeNum === 1) {
+                    appSubSection.classList.add('hidden');
+                    descEl.innerText = "Mode 1: Irisan Kerucut 3D - Irisan kerucut ganda oleh bidang potong datar membentuk cabang hiperbola.";
+                } else if (modeNum === 3) {
+                    appSubSection.classList.add('hidden');
+                    descEl.innerText = "Mode 3: Hyperboloid 3D Surface - Pemutaran/ekstensi kurva hiperbola menghasilkan permukaan Hyperboloid 1 atau 2 Lembar.";
+                } else if (modeNum === 4) {
+                    appSubSection.classList.remove('hidden');
+                    descEl.innerText = "Mode 4: Aplikasi Dunia Nyata - Aplikasi Geometri Hiperbola pada Menara Pendingin, Teleskop, atau Navigasi LORAN/GPS.";
+                }
+            }
+
+            updateAll();
+        }
+
+        // Master Update Function
+        function updateAll() {
+            // Read inputs
+            paramA = parseFloat(document.getElementById('slider-a').value);
+            paramB = parseFloat(document.getElementById('slider-b').value);
+            paramH = parseFloat(document.getElementById('slider-h').value);
+            paramK = parseFloat(document.getElementById('slider-k').value);
+            pgsTheta = parseFloat(document.getElementById('slider-theta').value);
+            pgsGrad = parseFloat(document.getElementById('slider-grad').value);
+
+            showCones = document.getElementById('chk-cones').checked;
+            showPlane = document.getElementById('chk-plane').checked;
+            showFoci = document.getElementById('chk-foci').checked;
+            showAsymptotes = document.getElementById('chk-asymptotes').checked;
+            showPGS = document.getElementById('chk-pgs').checked;
+
+            // Update DOM Sliders Labels
+            document.getElementById('val-a').innerText = paramA.toFixed(1);
+            document.getElementById('val-b').innerText = paramB.toFixed(1);
+            document.getElementById('val-h').innerText = paramH.toFixed(1);
+            document.getElementById('val-k').innerText = paramK.toFixed(1);
+            document.getElementById('val-theta').innerText = pgsTheta + "°";
+            document.getElementById('val-grad').innerText = pgsGrad.toFixed(2);
+
+            // Compute geometric values
+            const c = Math.sqrt(paramA * paramA + paramB * paramB);
+            const eccentricity = c / paramA;
+            const latusRectum = (2 * paramB * paramB) / paramA;
+
+            document.getElementById('math-c').innerText = `c = ${c.toFixed(2)}`;
+            document.getElementById('math-e').innerText = `e = ${eccentricity.toFixed(2)}`;
+            document.getElementById('math-lr').innerText = latusRectum.toFixed(2);
+
+            // Update Math Equations
+            const hStr = paramH === 0 ? "x" : `(x - ${paramH.toFixed(1)})`;
+            const kStr = paramK === 0 ? "y" : `(y - ${paramK.toFixed(1)})`;
+            
+            if (orientation === 'horizontal') {
+                document.getElementById('math-eq').innerHTML = `$\\frac{${hStr}^2}{${(paramA**2).toFixed(1)}} - \\frac{${kStr}^2}{${(paramB**2).toFixed(1)}} = 1$`;
+            } else {
+                document.getElementById('math-eq').innerHTML = `$\\frac{${kStr}^2}{${(paramA**2).toFixed(1)}} - \\frac{${hStr}^2}{${(paramB**2).toFixed(1)}} = 1$`;
+            }
+
+            // Garis Singgung (PGS) calculation
+            const pgsType = document.querySelector('input[name="pgs-type"]:checked').value;
+            document.getElementById('pgs-ctrl-point').classList.toggle('hidden', pgsType !== 'point');
+            document.getElementById('pgs-ctrl-grad').classList.toggle('hidden', pgsType !== 'grad');
+
+            if (pgsType === 'point') {
+                const rad = (pgsTheta * Math.PI) / 180;
+                const sec = 1 / Math.cos(rad);
+                const tan = Math.tan(rad);
+
+                let x1, y1;
+                if (orientation === 'horizontal') {
+                    x1 = paramH + paramA * sec;
+                    y1 = paramK + paramB * tan;
+                } else {
+                    x1 = paramH + paramB * tan;
+                    y1 = paramK + paramA * sec;
+                }
+                document.getElementById('math-pgs').innerHTML = `Titik T(${x1.toFixed(1)}, ${y1.toFixed(1)})`;
+            } else {
+                let pgsStr = "";
+                if (orientation === 'horizontal') {
+                    const diff = paramA*paramA * pgsGrad*pgsGrad - paramB*paramB;
+                    if (diff >= 0) {
+                        const val = Math.sqrt(diff).toFixed(2);
+                        pgsStr = `$y - k = ${pgsGrad.toFixed(1)}(x - h) \\pm ${val}$`;
+                    } else {
+                        pgsStr = "Tidak ada PGS riil";
+                    }
+                } else {
+                    const diff = paramA*paramA - paramB*paramB * pgsGrad*pgsGrad;
+                    if (diff >= 0) {
+                        const val = Math.sqrt(diff).toFixed(2);
+                        pgsStr = `$y - k = ${pgsGrad.toFixed(1)}(x - h) \\pm ${val}$`;
+                    } else {
+                        pgsStr = "Tidak ada PGS riil";
+                    }
+                }
+                document.getElementById('math-pgs').innerHTML = pgsStr;
+            }
+
+            if (window.MathJax) {
+                MathJax.typesetPromise();
+            }
+
+            // Render current active mode view
+            if (currentMode === 2) {
+                render2DPurePlot(c);
+            } else {
+                render3DScene(c);
+            }
+        }
+
+        // BUILD 3D SCENE (Modes 1, 3, 4)
+        function render3DScene(c) {
+            // Clear previous 3D objects
+            while (mainGroup.children.length > 0) {
+                mainGroup.remove(mainGroup.children[0]);
+            }
+
+            if (currentMode === 1) {
+                // MODE 1: Double Cone & Cutting Plane
+                if (showCones) {
+                    const coneGeo = new THREE.ConeGeometry(CONE_RADIUS, CONE_HEIGHT / 2, 64, 1, true);
+                    const coneMat = new THREE.MeshPhongMaterial({
+                        color: 0x64748b, transparent: true, opacity: 0.3, side: THREE.DoubleSide
+                    });
+                    const topCone = new THREE.Mesh(coneGeo, coneMat); topCone.position.y = CONE_HEIGHT / 4;
+                    const botCone = new THREE.Mesh(coneGeo, coneMat); botCone.rotation.x = Math.PI; botCone.position.y = -CONE_HEIGHT / 4;
+                    mainGroup.add(topCone, botCone);
+                }
+
+                if (showPlane) {
+                    const planeGeo = new THREE.PlaneGeometry(8, CONE_HEIGHT + 2);
+                    const planeMat = new THREE.MeshPhongMaterial({
+                        color: 0x3b82f6, side: THREE.DoubleSide, transparent: true, opacity: 0.3
+                    });
+                    const planeMesh = new THREE.Mesh(planeGeo, planeMat);
+                    if (orientation === 'horizontal') {
+                        planeMesh.position.set(paramA + paramH, paramK, 0);
+                    } else {
+                        planeMesh.rotation.y = Math.PI / 2;
+                        planeMesh.position.set(paramH, paramK, paramA);
+                    }
+                    mainGroup.add(planeMesh);
+                }
+
+                // Render 3D Hyperbola Curves
+                render3DHyperbolaCurves();
+
+            } else if (currentMode === 3) {
+                // MODE 3: Hyperboloid 3D Surface
+                const geo = new THREE.BufferGeometry();
+                const uSegs = 40, vSegs = 40;
+                const vertices = [];
+
+                for (let i = 0; i <= uSegs; i++) {
+                    const u = (i / uSegs - 0.5) * 3; // sinh parameter
+                    for (let j = 0; j <= vSegs; j++) {
+                        const v = (j / vSegs) * Math.PI * 2; // rotation angle
+                        
+                        // Hyperboloid of One Sheet equation
+                        const x = paramA * Math.cosh(u) * Math.cos(v) + paramH;
+                        const y = paramA * Math.cosh(u) * Math.sin(v) + paramK;
+                        const z = paramB * Math.sinh(u);
+
+                        vertices.push(x, z, y);
+                    }
+                }
+                
+                // Construct surface mesh grid
+                const indices = [];
+                for (let i = 0; i < uSegs; i++) {
+                    for (let j = 0; j < vSegs; j++) {
+                        const a = i * (vSegs + 1) + j;
+                        const b = a + 1;
+                        const c = (i + 1) * (vSegs + 1) + j;
+                        const d = c + 1;
+                        indices.push(a, b, d);
+                        indices.push(a, d, c);
+                    }
+                }
+
+                geo.setIndex(indices);
+                geo.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
+                geo.computeVertexNormals();
+
+                const surfMat = new THREE.MeshPhongMaterial({
+                    color: 0x6366f1, wireframe: false, side: THREE.DoubleSide, transparent: true, opacity: 0.75
+                });
+                const surfMesh = new THREE.Mesh(geo, surfMat);
+                mainGroup.add(surfMesh);
+
+                const wireMat = new THREE.MeshBasicMaterial({ color: 0xc7d2fe, wireframe: true, transparent: true, opacity: 0.3 });
+                mainGroup.add(new THREE.Mesh(geo, wireMat));
+
+            } else if (currentMode === 4) {
+                // MODE 4: Real World Applications
+                const appType = document.getElementById('select-app-model').value;
+                if (appType === 'tower') {
+                    // Cooling tower hyperbolic structure
+                    const geo = new THREE.CylinderGeometry(2.5, 4, 8, 32, 16, true);
+                    const mat = new THREE.MeshStandardMaterial({ color: 0x94a3b8, wireframe: true });
+                    const tower = new THREE.Mesh(geo, mat);
+                    mainGroup.add(tower);
+                } else if (appType === 'telescope') {
+                    // Telescope Cassegrain hyperbolic reflector
+                    const mirrorGeo = new THREE.ConeGeometry(4, 2, 32, 1, true);
+                    const mirrorMat = new THREE.MeshStandardMaterial({ color: 0xf59e0b, metalness: 0.9, roughness: 0.1 });
+                    const mirror = new THREE.Mesh(mirrorGeo, mirrorMat);
+                    mirror.rotation.x = Math.PI;
+                    mainGroup.add(mirror);
+                } else if (appType === 'loran') {
+                    // LORAN Navigation intersection lines
+                    render3DHyperbolaCurves();
+                }
+            }
+
+            // Foci and Vertices in 3D
+            if (showFoci) {
+                render3DFoci(c);
+            }
+        }
+
+        // Render 3D Curves for Hyperbola
+        function render3DHyperbolaCurves() {
+            const redMat = new THREE.LineBasicMaterial({ color: 0xef4444, linewidth: 3 });
+            const ptsTop = [], ptsBot = [];
+            const steps = 80;
+
+            for (let i = 0; i <= steps; i++) {
+                const t = (i / steps - 0.5) * 4;
+                const sec = Math.cosh(t);
+                const tan = Math.sinh(t);
+
+                if (orientation === 'horizontal') {
+                    ptsTop.push(new THREE.Vector3(paramH + paramA * sec, paramK + paramB * tan, 0));
+                    ptsBot.push(new THREE.Vector3(paramH - paramA * sec, paramK + paramB * tan, 0));
+                } else {
+                    ptsTop.push(new THREE.Vector3(paramH + paramB * tan, paramK + paramA * sec, 0));
+                    ptsBot.push(new THREE.Vector3(paramH + paramB * tan, paramK - paramA * sec, 0));
+                }
+            }
+
+            mainGroup.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(ptsTop), redMat));
+            mainGroup.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(ptsBot), redMat));
+        }
+
+        // Render 3D Foci & Vertices
+        function render3DFoci(c) {
+            const sphereGeo = new THREE.SphereGeometry(0.2, 16, 16);
+            const focusMat = new THREE.MeshBasicMaterial({ color: 0x10b981 });
+            const vertexMat = new THREE.MeshBasicMaterial({ color: 0xf59e0b });
+
+            let f1, f2, v1, v2;
+            if (orientation === 'horizontal') {
+                f1 = new THREE.Vector3(paramH + c, paramK, 0);
+                f2 = new THREE.Vector3(paramH - c, paramK, 0);
+                v1 = new THREE.Vector3(paramH + paramA, paramK, 0);
+                v2 = new THREE.Vector3(paramH - paramA, paramK, 0);
+            } else {
+                f1 = new THREE.Vector3(paramH, paramK + c, 0);
+                f2 = new THREE.Vector3(paramH, paramK - c, 0);
+                v1 = new THREE.Vector3(paramH, paramK + paramA, 0);
+                v2 = new THREE.Vector3(paramH, paramK - paramA, 0);
+            }
+
+            [f1, f2].forEach(p => {
+                const m = new THREE.Mesh(sphereGeo, focusMat);
+                m.position.copy(p);
+                mainGroup.add(m);
+            });
+            [v1, v2].forEach(p => {
+                const m = new THREE.Mesh(sphereGeo, vertexMat);
+                m.position.copy(p);
+                mainGroup.add(m);
+            });
+        }
+
+        // PURE 2D CARTESIAN CANVAS PLOT (MODE 2)
+        function render2DPurePlot(c) {
+            const w = canvas2D.width;
+            const h = canvas2D.height;
+
+            ctx2D.clearRect(0, 0, w, h);
+
+            // Coordinate System Origin Center Offset
+            const scale = 35; // 35 pixels = 1 unit
+            const cx = w / 2;
+            const cy = h / 2;
+
+            function toScreenX(x) { return cx + x * scale; }
+            function toScreenY(y) { return cy - y * scale; }
+
+            // 1. Draw Grid
+            ctx2D.strokeStyle = "#1e293b";
+            ctx2D.lineWidth = 1;
+            for (let x = -20; x <= 20; x++) {
+                ctx2D.beginPath();
+                ctx2D.moveTo(toScreenX(x), 0);
+                ctx2D.lineTo(toScreenX(x), h);
+                ctx2D.stroke();
+            }
+            for (let y = -20; y <= 20; y++) {
+                ctx2D.beginPath();
+                ctx2D.moveTo(0, toScreenY(y));
+                ctx2D.lineTo(w, toScreenY(y));
+                ctx2D.stroke();
+            }
+
+            // 2. Draw Axes (X and Y)
+            ctx2D.strokeStyle = "#64748b";
+            ctx2D.lineWidth = 2;
+            ctx2D.beginPath(); ctx2D.moveTo(0, cy); ctx2D.lineTo(w, cy); ctx2D.stroke();
+            ctx2D.beginPath(); ctx2D.moveTo(cx, 0); ctx2D.lineTo(cx, h); ctx2D.stroke();
+
+            // 3. Draw Asymptotes
+            if (showAsymptotes) {
+                ctx2D.strokeStyle = "#475569";
+                ctx2D.setLineDash([5, 5]);
+                ctx2D.lineWidth = 1.5;
+                const m = orientation === 'horizontal' ? (paramB / paramA) : (paramA / paramB);
+
+                ctx2D.beginPath();
+                ctx2D.moveTo(toScreenX(-10), toScreenY(paramK + m * (-10 - paramH)));
+                ctx2D.lineTo(toScreenX(10), toScreenY(paramK + m * (10 - paramH)));
+                ctx2D.stroke();
+
+                ctx2D.beginPath();
+                ctx2D.moveTo(toScreenX(-10), toScreenY(paramK - m * (-10 - paramH)));
+                ctx2D.lineTo(toScreenX(10), toScreenY(paramK - m * (10 - paramH)));
+                ctx2D.stroke();
+                ctx2D.setLineDash([]);
+            }
+
+            // 4. Draw Hyperbola Curve (Red)
+            ctx2D.strokeStyle = "#ef4444";
+            ctx2D.lineWidth = 3;
+
+            ctx2D.beginPath();
+            for (let t = -2.5; t <= 2.5; t += 0.02) {
+                const sec = Math.cosh(t);
+                const tan = Math.sinh(t);
+                let x, y;
+                if (orientation === 'horizontal') {
+                    x = paramH + paramA * sec;
+                    y = paramK + paramB * tan;
+                } else {
+                    x = paramH + paramB * tan;
+                    y = paramK + paramA * sec;
+                }
+                if (t === -2.5) ctx2D.moveTo(toScreenX(x), toScreenY(y));
+                else ctx2D.lineTo(toScreenX(x), toScreenY(y));
+            }
+            ctx2D.stroke();
+
+            ctx2D.beginPath();
+            for (let t = -2.5; t <= 2.5; t += 0.02) {
+                const sec = Math.cosh(t);
+                const tan = Math.sinh(t);
+                let x, y;
+                if (orientation === 'horizontal') {
+                    x = paramH - paramA * sec;
+                    y = paramK + paramB * tan;
+                } else {
+                    x = paramH + paramB * tan;
+                    y = paramK - paramA * sec;
+                }
+                if (t === -2.5) ctx2D.moveTo(toScreenX(x), toScreenY(y));
+                else ctx2D.lineTo(toScreenX(x), toScreenY(y));
+            }
+            ctx2D.stroke();
+
+            // 5. Draw Tangent Line (PGS)
+            if (showPGS) {
+                ctx2D.strokeStyle = "#f59e0b";
+                ctx2D.lineWidth = 2.5;
+
+                const rad = (pgsTheta * Math.PI) / 180;
+                const sec = 1 / Math.cos(rad);
+                const tan = Math.tan(rad);
+
+                let x1, y1, slope;
+                if (orientation === 'horizontal') {
+                    x1 = paramH + paramA * sec;
+                    y1 = paramK + paramB * tan;
+                    slope = (paramB * sec) / (paramA * tan);
+                } else {
+                    x1 = paramH + paramB * tan;
+                    y1 = paramK + paramA * sec;
+                    slope = (paramA * tan) / (paramB * sec);
+                }
+
+                ctx2D.beginPath();
+                ctx2D.moveTo(toScreenX(x1 - 5), toScreenY(y1 - 5 * slope));
+                ctx2D.lineTo(toScreenX(x1 + 5), toScreenY(y1 + 5 * slope));
+                ctx2D.stroke();
+
+                // Point T(x1, y1)
+                ctx2D.fillStyle = "#f59e0b";
+                ctx2D.beginPath();
+                ctx2D.arc(toScreenX(x1), toScreenY(y1), 5, 0, Math.PI * 2);
+                ctx2D.fill();
+            }
+
+            // 6. Foci and Vertices Points
+            if (showFoci) {
+                ctx2D.fillStyle = "#10b981"; // Focus Green
+                let f1X = orientation === 'horizontal' ? paramH + c : paramH;
+                let f1Y = orientation === 'horizontal' ? paramK : paramK + c;
+                let f2X = orientation === 'horizontal' ? paramH - c : paramH;
+                let f2Y = orientation === 'horizontal' ? paramK : paramK - c;
+
+                ctx2D.beginPath(); ctx2D.arc(toScreenX(f1X), toScreenY(f1Y), 5, 0, Math.PI * 2); ctx2D.fill();
+                ctx2D.beginPath(); ctx2D.arc(toScreenX(f2X), toScreenY(f2Y), 5, 0, Math.PI * 2); ctx2D.fill();
+            }
+        }
+
+        // Helpers & Handlers
+        function setOrientation(type) {
+            orientation = type;
+            document.getElementById('btn-orient-h').className = type === 'horizontal' ? 
+                "py-1.5 px-3 rounded-lg font-medium transition-all shadow-sm bg-white text-indigo-600 font-semibold" : 
+                "py-1.5 px-3 rounded-lg font-medium text-slate-600 hover:text-slate-900 transition-all";
+            document.getElementById('btn-orient-v').className = type === 'vertical' ? 
+                "py-1.5 px-3 rounded-lg font-medium transition-all shadow-sm bg-white text-indigo-600 font-semibold" : 
+                "py-1.5 px-3 rounded-lg font-medium text-slate-600 hover:text-slate-900 transition-all";
+            updateAll();
+        }
+
+        function resetParams() {
+            document.getElementById('slider-a').value = 2.0;
+            document.getElementById('slider-b').value = 1.5;
+            document.getElementById('slider-h').value = 0.0;
+            document.getElementById('slider-k').value = 0.0;
+            updateAll();
+        }
+
+        function resetCamera() {
+            camera.position.set(12, 10, 16);
+            controls.target.set(0, 0, 0);
+            controls.update();
+        }
+
+        function toggleModal(id) {
+            document.getElementById(id).classList.toggle('hidden');
+        }
+
+        function resize2DCanvas() {
+            const container = document.getElementById('canvas-container');
+            canvas2D.width = container.clientWidth;
+            canvas2D.height = container.clientHeight;
+        }
+
+        function onWindowResize() {
+            const container = document.getElementById('canvas-container');
+            camera.aspect = container.clientWidth / container.clientHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(container.clientWidth, container.clientHeight);
+            resize2DCanvas();
+            updateAll();
+        }
+
+        function attachInputEvents() {
+            ['slider-a', 'slider-b', 'slider-h', 'slider-k', 'slider-theta', 'slider-grad'].forEach(id => {
+                document.getElementById(id).addEventListener('input', updateAll);
+            });
+            ['chk-cones', 'chk-plane', 'chk-foci', 'chk-asymptotes', 'chk-pgs'].forEach(id => {
+                document.getElementById(id).addEventListener('change', updateAll);
+            });
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+            controls.update();
+            renderer.render(scene, camera);
+        }
+
+        window.onload = init;
+    </script>
+</body>
+</html>
